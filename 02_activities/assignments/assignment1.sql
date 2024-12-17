@@ -40,13 +40,12 @@ filtered by vendor IDs between 8 and 10 (inclusive) using either:
 -- option 1
 select  (quantity * cost_to_customer_per_qty) as price, * 
 from customer_purchases 
-where product_id = 8 OR product_id =9 OR product_id = 10
-
+where vendor_id = 8 OR vendor_id =9 OR vendor_id = 10
 
 -- option 2
 select  (quantity * cost_to_customer_per_qty) as price, * 
 from customer_purchases 
-where product_id between 8 and 10
+where vendor_id between 8 and 10
 
 
 
