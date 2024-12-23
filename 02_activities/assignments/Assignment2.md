@@ -55,8 +55,9 @@ The store wants to keep customer addresses. Propose two architectures for the CU
 
 ```
 Your answer...
-```
-
+I created the Customer table with flag keep_old_address as boolean, and I create a Customer_address table with details of customer address and Customer_id aand boolead is_current that indicate that it is the current customer address.
+If  the flag keep_old_address is true will save the new customer address and set is_current flag as true and updated the old customer address information as is_current false;
+If the flag keep_old_address is false the customer address will be updated.
 ***
 
 ## Section 2:
