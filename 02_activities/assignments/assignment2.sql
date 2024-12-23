@@ -60,8 +60,19 @@ WHERE customer_visit = 1
 /* 3. Using a COUNT() window function, include a value along with each row of the 
 customer_purchases table that indicates how many different times that customer has purchased that product_id. */
 
+-- This query is returning how many different times that customer has purchased that product_id without inform the date and only one row per customer_id and product_id
 SELECT distinct customer_id, product_id,  count() OVER (PARTITION BY customer_id, product_id) times_purchased
 FROM customer_purchases 
+
+-- Related of comment "Missing transaction time, output also not sorted", sorry I think this is what you are looking for.
+-- This query is returning how many different times that customer has purchased one product showing all rows on the table showing also market_date
+SELECT 
+    customer_id,
+    product_id,
+    market_date,
+    COUNT(market_date) OVER (PARTITION BY customer_id, product_id) AS purchase_count
+FROM 
+    customer_purchases;
 
 
 -- String manipulations
@@ -79,6 +90,12 @@ SELECT product_name,
 CASE WHEN trim(substr(product_name, INSTR(product_name,'-')+2)) IN ('Organic','Jar') THEN trim(substr(product_name, INSTR(product_name,'-')+2))  ELSE NULL END  description
 FROM product
 
+-- Ernani, I am not usre if I understood your request(Try making it without the product names or partially product names. The question asks with a very specific),  I am sharing a new query below
+SELECT 
+    product_name,
+    TRIM(SUBSTR(product_name, INSTR(product_name, '-') + 2)) AS product_description,
+FROM product
+WHERE INSTR(product_name, '-') > 0;
 
 /* 2. Filter the query to show any product_size value that contain a number with REGEXP. */
 
@@ -147,6 +164,20 @@ CROSS JOIN
 ORDER BY 
     v.vendor_name, v.product_name;	
 
+-- Ernani, related of "The result seems not resoanable. Based on your question about understanding the question you can try it without counting customers and grouping by after the CROSS JOIN. You ay think it visually.", 
+-- I am not sure if it is you are looking for, but this case I will calculate data from every single line from vendor_inventory table; The same same product will be considerer many times.
+SELECT 
+    v.vendor_name,
+    p.product_name,
+    SUM(5 * vi.original_price * c.customer_count ) AS price
+FROM vendor v
+JOIN vendor_inventory vi ON v.vendor_id = vi.vendor_id
+JOIN product p ON vi.product_id = p.product_id
+CROSS JOIN 
+    (SELECT COUNT(customer_id) AS customer_count FROM customer) c
+GROUP BY 
+    v.vendor_name, p.product_name
+
 
 -- INSERT
 /*1.  Create a new table "product_units". 
@@ -160,6 +191,17 @@ SELECT *, CURRENT_TIMESTAMP AS snapshot_timestamp FROM product WHERE product_qty
 /*2. Using `INSERT`, add a new row to the product_units table (with an updated timestamp). 
 This can be any product you desire (e.g. add another record for Apple Pie). */
 
+-- Ernani,  related your comment "Seens like you added a product that doesn't exist in the products table ("Pasture-raised eggs") and the DELETE clause won't work for the older same product. Please review it."
+-- Yes I added a new product that does not exist because the information above is saying "can be any product you desire", it is not saying any product from product table
+--
+
+-- This query is related of one product from product that product_qty_type != 'unit'
+SELECT product_id, product_name, product_size, product_category_id,product_qty_type, CURRENT_TIMESTAMP
+FROM product
+WHERE product_qty_type != 'unit'
+LIMIT 1
+
+-- This query is from one new product
 INSERT INTO product_units 
 (product_id, product_name, product_size, product_category_id,product_qty_type, snapshot_timestamp)
 Values (56, 'Pasture-raised eggs', '1 dozen',6,'unit',CURRENT_TIMESTAMP)
@@ -192,26 +234,18 @@ When you have all of these components, you can run the update statement. */
 -- Note: Since the vendor_inventory could have more than one product_id from the last market_date because vendor_id is part of primary key, I am using MAX of quatity, 
 -- but I could use SUM function to get total of quatity from the last day for each product. I am not sure exaclty what you are looking for.
 
+-- Ernani I did not include the ALTER TABLE product_units ADD current_quantity INT; because the command was informed on 02_activities\assignments\Assignment2.md file
+-- Related of your comment: "you have two UPDATE clauses with some issues (check if ";" is important too) and check why your result is resulting in 0 (zero)"
+-- Sorry, I am not sure what happened I shared the wrong query, please considere this one.
+ 
 UPDATE product_units
-SET current_quantity = y.quantity
-FROM
-(SELECT u.product_id, coalesce(max(v.quantity),0) quantity
-FROM product_units u 
-LEFT JOIN (vendor_inventory v  INNER JOIN
-(SELECT product_id,  SUM(market_date) market_date
-FROM vendor_inventory
-GROUP BY product_id) g  ON (v.product_id = g.product_id AND v.market_date = g.market_date ) ) x ON (u.product_id = x.product_id)
-GROUP BY u.product_id ) y
-WHERE product_units.product_id = y.product_id
+SET current_quantity = coalesce ((
+    SELECT vi.quantity
+    FROM vendor_inventory vi
+    WHERE vi.product_id = product_units.product_id
+    ORDER BY vi.market_date DESC
+    LIMIT 1
+),0);
 
-UPDATE product_units
-SET current_quantity = y.quantity
-FROM
-(SELECT u.product_id, coalesce(max(v.quantity),0) quantity
-FROM product_units u 
-LEFT JOIN (vendor_inventory v  INNER JOIN
-(SELECT product_id,  SUM(market_date) market_date
-FROM vendor_inventory
-GROUP BY product_id) g  ON (v.product_id = g.product_id AND v.market_date = g.market_date ) ) x ON (u.product_id = x.product_id)
-GROUP BY u.product_id ) y
-WHERE product_units.product_id = y.product_id
+
+ 
